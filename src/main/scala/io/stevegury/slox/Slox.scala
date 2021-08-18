@@ -3,6 +3,9 @@ package io.stevegury.slox
 import scala.io.Source
 
 object Slox {
+  private[this] var hasRuntimeError = false
+  private[this] val interpreter = new Interpreter()
+
   def main(args: Array[String]): Unit = {
     println("Welcome to slox!")
     val slox = new Slox()
@@ -31,9 +34,16 @@ object Slox {
   def report(line: Int, where: String, message: String): Unit = {
     println(s"[line $line] Error $where: $message")
   }
+
+  def runtimeError(error: RuntimeError): Unit = {
+    println(error.getMessage() + s"\n[line ${error.token.line}]")
+    hasRuntimeError = true
+  }
 }
 
 class Slox {
+  import Slox._
+
   var hasError: Boolean = false
 
   def runPrompt(): Unit = {
@@ -58,9 +68,12 @@ class Slox {
       if (hasError) {
         System.exit(65)
       }
+      if (hasRuntimeError) {
+        System.exit(70)
+      }
     }
 
-  def run(prgm: String): Unit = {
+  def run(prgm: String): Any = {
     print(s"RUNNING: '$prgm'\n")
     
     val scanner = new Scanner(prgm)
@@ -70,10 +83,13 @@ class Slox {
     val parser = new Parser(tokens.toIndexedSeq)
     val expr = parser.parse()
 
-    if (hasError) {
-      return
+    if (hasError || expr == null) {
+      return "Syntax Error"
     }
-
     println(s"AST: $expr")
+
+    val res = interpreter.interpret(expr)
+    println(s"result: ${interpreter.stringify(res)}")
+    res
   }
 }
