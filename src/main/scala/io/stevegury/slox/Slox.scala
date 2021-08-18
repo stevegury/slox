@@ -20,6 +20,14 @@ object Slox {
     report(line, "", message)
   }
 
+  def error(token: Token, msg: String): Unit = {
+    if (token.typ == EOF) {
+        report(token.line, " at end", msg)
+    } else {
+        report(token.line, s" at '${token.lexeme}'", msg)
+    }
+  }
+
   def report(line: Int, where: String, message: String): Unit = {
     println(s"[line $line] Error $where: $message")
   }
@@ -54,9 +62,18 @@ class Slox {
 
   def run(prgm: String): Unit = {
     print(s"RUNNING: '$prgm'\n")
+    
     val scanner = new Scanner(prgm)
     val tokens = scanner.scanTockens()
+    println(s"TOKENS: '${tokens.mkString(", ")}'")
 
-    tokens.foreach(println)
+    val parser = new Parser(tokens.toIndexedSeq)
+    val expr = parser.parse()
+
+    if (hasError) {
+      return
+    }
+
+    println(s"AST: $expr")
   }
 }
