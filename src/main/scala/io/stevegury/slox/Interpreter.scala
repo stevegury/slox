@@ -1,19 +1,55 @@
 package io.stevegury.slox
 
 class Interpreter {
+    private[this] var environment = new Environment()
 
-
-    def interpret(expr: Expr): Any = {
+    def interpret(statements: Seq[Stmt]): Any = {
+        var result: Any = null
         try {
-            val value = evaluate(expr)
-            // println(stringify(value))
-            return value
+            statements.foreach { stmt =>
+                result = execute(stmt)
+            }
         } catch {
             case error: RuntimeError => Slox.runtimeError(error)
         }
-        return null
+        return result
     }
-        
+    
+    def execute(stmt: Stmt): Any = {
+        if (stmt == null) {
+            throw new Exception("Invalid statement!")
+        }
+        stmt match {
+            case PrintStmt(expr) => 
+                val value = evaluate(expr)
+                println(value)
+                value
+            case Expression(expr) => evaluate(expr)
+            case VarStmt(name, initializer) => 
+                var value: Any = null
+                if (initializer != null) {
+                    value = evaluate(initializer)
+                }
+                environment.define(name.lexeme, value)
+                return null
+            case BlockStmt(statements) =>
+                executeBlock(statements, new Environment(environment))
+                return null
+        }
+    }
+
+    def executeBlock(statements: Seq[Stmt], newEnv: Environment): Unit = {
+        val previous = environment
+        try {
+            environment = newEnv
+            statements.foreach { stmt =>
+                execute(stmt)
+            }
+        } finally {
+            environment = previous
+        }
+    }
+
     def evaluate(expr: Expr): Any = {
         expr match {
             case l: Literal => l.value
@@ -28,6 +64,11 @@ class Interpreter {
                     case o => throw new RuntimeException("Invalid unary opertor " + o)
                 }
                 return null
+            case Variable(tokenName) => environment.get(tokenName)
+            case Assign(token, expr) => 
+                val value = evaluate(expr)
+                environment.assign(token, value)
+                return value
             case b: Binary =>
                 val left = evaluate(b.left)
                 val right = evaluate(b.right)

@@ -54,8 +54,12 @@ class Slox {
       if (line == null) {
         done = true
       } else {
-        run(line)
-        hasError = false
+        try {
+          run(line)
+          hasError = false
+        } catch {
+          case t: Throwable => t.printStackTrace()
+        }
       }
     }
   }
@@ -81,14 +85,14 @@ class Slox {
     println(s"TOKENS: '${tokens.mkString(", ")}'")
 
     val parser = new Parser(tokens.toIndexedSeq)
-    val expr = parser.parse()
+    val statements = parser.parse()
 
-    if (hasError || expr == null) {
+    if (hasError || statements == null) {
       return "Syntax Error"
     }
-    println(s"AST: $expr")
+    println(s"AST: $statements")
 
-    val res = interpreter.interpret(expr)
+    val res = interpreter.interpret(statements)
     println(s"result: ${interpreter.stringify(res)}")
     res
   }

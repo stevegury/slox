@@ -28,3 +28,15 @@ case class Unary(operator: Token, right: Expr) extends Expr {
         s"(${operator.lexeme} $right)"
     }
 }
+
+case class Variable(name: Token) extends Expr {
+    override def toString(): String = {
+        s"VAR(\"${name.lexeme}\")"
+    }
+}
+
+case class Assign(name: Token, expr: Expr) extends Expr {
+    override def toString(): String = {
+        s"VAR(\"${name.lexeme}\")"
+    }
+}

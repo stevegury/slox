@@ -1,20 +1,99 @@
 package io.stevegury.slox
 
+object Parser {
+    class ParseError extends RuntimeException
+}
+
 class Parser(tokens: IndexedSeq[Token]) {
-    private class ParseError extends RuntimeException
+    import Parser._
     
     private[this] var current: Int = 0
 
-    def parse(): Expr = {
+    def parse(): Seq[Stmt] = {
+        var statements = Seq.empty[Stmt]
+        while (!isAtEnd()) {
+            val s = declaration()
+            if (s != null) {
+                statements = statements :+ s
+            }
+        }
+        statements
+    }
+
+    private[this] def declaration(): Stmt = {
         try {
-            expression()
+            if (matchToken(VAR)) {
+                return varDeclaration()
+            }
+            return statement()
         } catch {
-            case _: ParseError => null
+            case _: ParseError =>
+                synchronize()
+                return null
         }
     }
 
+    private[this] def varDeclaration(): Stmt = {
+        val tokenName = consume(IDENTIFIER, "Expect variable name.")
+
+        var initializer: Expr = null
+        if (matchToken(EQUAL)) {
+            initializer = expression()
+        }
+
+        consume(SEMICOLON, "Expect ';' after variable declaration.")
+        return VarStmt(tokenName, initializer)
+    }
+
+    private[this] def statement(): Stmt = {
+        if (matchToken(PRINT)) {
+            return printStatement()
+        }
+        if (matchToken(LEFT_BRACE)) {
+            return BlockStmt(block())
+        }
+        return expressionStatement()
+    }
+
+    private[this] def printStatement(): Stmt = {
+        val expr = expression()
+        consume(SEMICOLON, "Expect ';' after value.")
+        PrintStmt(expr)
+    }
+
+    private[this] def block(): Seq[Stmt] = {
+        var statements = Seq.empty[Stmt]
+
+        while (!check(RIGHT_BRACE) && !isAtEnd()) {
+            statements = statements :+ declaration()
+        }
+
+        consume(RIGHT_BRACE, "Expect '}' after block.")
+        statements
+    }
+
+    private[this] def expressionStatement(): Stmt = {
+        val expr = expression()
+        consume(SEMICOLON, "Expect ';' after expression.")
+        Expression(expr)
+    }
+
     private[this] def expression(): Expr = {
-        equality()
+        assignement()
+    }
+
+    private[this] def assignement(): Expr = {
+        val expr = equality()
+        if (matchToken(EQUAL)) {
+            val equals = previous()
+            val value = assignement()
+
+            expr match {
+                case Variable(tokenName) => return Assign(tokenName, value)
+                case _ => error(equals, "Invalid assignement target.")
+            }
+        }
+        return expr
     }
 
     private[this] def equality(): Expr = {
@@ -81,6 +160,10 @@ class Parser(tokens: IndexedSeq[Token]) {
             return Literal(previous().literal)
         }
 
+        if (matchToken(IDENTIFIER)) {
+            return Variable(previous())
+        }
+
         if (matchToken(LEFT_PAREN)) {
             val expr = expression()
             consume(RIGHT_PAREN, "Expect ')' after expression.")
@@ -121,7 +204,7 @@ class Parser(tokens: IndexedSeq[Token]) {
         peek().typ == typ
     }
 
-    private[this] def advance(): Unit = {
+    private[this] def advance(): Token = {
         if (!isAtEnd()) {
             current += 1
         }
@@ -140,7 +223,7 @@ class Parser(tokens: IndexedSeq[Token]) {
         tokens(current - 1)
     }
 
-    private[this] def consume(typ: TokenType, msg: String): Unit = {
+    private[this] def consume(typ: TokenType, msg: String): Token = {
         if (check(typ)) {
             return advance()
         }
