@@ -22,7 +22,7 @@ class Interpreter {
         stmt match {
             case PrintStmt(expr) => 
                 val value = evaluate(expr)
-                println(value)
+                println(stringify(value))
                 value
             case Expression(expr) => evaluate(expr)
             case VarStmt(name, initializer) => 
@@ -34,6 +34,18 @@ class Interpreter {
                 return null
             case BlockStmt(statements) =>
                 executeBlock(statements, new Environment(environment))
+                return null
+            case IfStmt(condition, thenBranch, elseBranch) =>
+                if (isTruthy(evaluate(condition))) {
+                    execute(thenBranch)
+                } else if (elseBranch != null) {
+                    execute(elseBranch)
+                }
+                return null
+            case WhileStmt(condition, body) =>
+                while (isTruthy(evaluate(condition))) {
+                    execute(body)
+                }
                 return null
         }
     }
@@ -69,6 +81,18 @@ class Interpreter {
                 val value = evaluate(expr)
                 environment.assign(token, value)
                 return value
+            case Logical(left, operator, right) =>
+                val leftValue = evaluate(left)
+                if (operator.typ == OR) {
+                    if (isTruthy(leftValue)) {
+                        return leftValue
+                    }
+                } else {
+                    if (!isTruthy(leftValue)) {
+                        return leftValue
+                    }
+                }
+                return evaluate(right)
             case b: Binary =>
                 val left = evaluate(b.left)
                 val right = evaluate(b.right)

@@ -37,6 +37,12 @@ case class Variable(name: Token) extends Expr {
 
 case class Assign(name: Token, expr: Expr) extends Expr {
     override def toString(): String = {
-        s"VAR(\"${name.lexeme}\")"
+        s"ASSIGN(\"${name.lexeme}\" = $expr)"
+    }
+}
+
+case class Logical(left: Expr, operator: Token, right: Expr) extends Expr {
+    override def toString(): String = {
+        s"$left ${operator.lexeme} $right"
     }
 }

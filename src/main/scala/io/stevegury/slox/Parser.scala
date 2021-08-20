@@ -46,19 +46,92 @@ class Parser(tokens: IndexedSeq[Token]) {
     }
 
     private[this] def statement(): Stmt = {
+        if (matchToken(FOR)) {
+            return forStatement()
+        }
+        if (matchToken(IF)) {
+            return ifStatement()
+        }
         if (matchToken(PRINT)) {
             return printStatement()
+        }
+        if (matchToken(WHILE)) {
+            return whileStatement()
         }
         if (matchToken(LEFT_BRACE)) {
             return BlockStmt(block())
         }
-        return expressionStatement()
+        expressionStatement()
+    }
+
+    private[this] def forStatement(): Stmt = {
+        consume(LEFT_PAREN, "Expect '(' after 'for'.")
+        
+        var initializer: Stmt = null
+        if (matchToken(SEMICOLON)) {
+            initializer = null
+        } else if (matchToken(VAR)) {
+            initializer = varDeclaration()
+        } else {
+            initializer = expressionStatement()
+        }
+
+        var condition: Expr = null
+        if (!matchToken(SEMICOLON)) {
+            condition = expression()
+        }
+        consume(SEMICOLON, "Expect ';' after loop condition.")
+
+        var increment: Expr = null
+        if (!check(RIGHT_PAREN)) {
+            increment = expression()
+        }
+        consume(RIGHT_PAREN, "Expect ')' after for clauses.")
+
+        var body = statement()
+
+        if (increment != null) {
+            body = BlockStmt(Seq(body, Expression(increment)))
+        }
+
+        if (condition == null) {
+            condition = Literal(true)
+        }
+        body = WhileStmt(condition, body)
+
+        if (initializer != null) {
+            body = BlockStmt(Seq(initializer, body))
+        }
+
+        body
+    }
+
+    private[this] def ifStatement(): Stmt = {
+        consume(LEFT_PAREN, "Expect '(' after if.")
+        val condition = expression()
+        consume(RIGHT_PAREN, "Expect ')'' after if condition.")
+
+        val thenBranch = statement()
+        var elseBranch: Stmt = null
+        if (matchToken(ELSE)) {
+            elseBranch = statement()
+        }
+
+        IfStmt(condition, thenBranch, elseBranch)
     }
 
     private[this] def printStatement(): Stmt = {
         val expr = expression()
         consume(SEMICOLON, "Expect ';' after value.")
         PrintStmt(expr)
+    }
+
+    private[this] def whileStatement(): Stmt = {
+        consume(LEFT_PAREN, "Expect '(' after while.")
+        val condition = expression()
+        consume(RIGHT_PAREN, "Expect ')' after while condition.")
+        val body = statement()
+        WhileStmt(condition, body)
     }
 
     private[this] def block(): Seq[Stmt] = {
@@ -83,7 +156,7 @@ class Parser(tokens: IndexedSeq[Token]) {
     }
 
     private[this] def assignement(): Expr = {
-        val expr = equality()
+        val expr = or()
         if (matchToken(EQUAL)) {
             val equals = previous()
             val value = assignement()
@@ -94,6 +167,26 @@ class Parser(tokens: IndexedSeq[Token]) {
             }
         }
         return expr
+    }
+
+    private[this] def or(): Expr = {
+        var expr = and()
+        while (matchToken(OR)) {
+            val operator = previous()
+            val right = and()
+            expr = Logical(expr, operator, right)
+        }
+        expr
+    }
+
+    private[this] def and(): Expr = {
+        var expr = equality()
+        while (matchToken(AND)) {
+            val operator = previous()
+            val right = equality()
+            expr = Logical(expr, operator, right)
+        }
+        expr
     }
 
     private[this] def equality(): Expr = {
