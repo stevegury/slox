@@ -168,7 +168,7 @@ class Interpreter {
         if (left.isInstanceOf[Double] && right.isInstanceOf[Double]) {
             return
         }
-        throw new RuntimeError(operator, "Operands must be a number.")
+        throw new RuntimeError(operator, "Operands must be numbers.")
     }
 
     def stringify(obj: Any): String = {
